@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { useAuth } from '@/contexts/AuthContext';
-import { Printer, Download, User, LogOut, Sun, Moon } from 'lucide-react';
+import { Printer, Download, User, LogOut, Sun, Moon, Keyboard } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,6 +11,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useTheme } from 'next-themes';
+import { useState } from 'react';
+import KeyboardShortcutsDialog from './KeyboardShortcutsDialog';
 
 interface TopBarProps {
   onPrint?: () => void;
@@ -20,6 +22,13 @@ interface TopBarProps {
 const TopBar = ({ onPrint, onDownloadPDF }: TopBarProps) => {
   const { user, logout } = useAuth();
   const { theme, setTheme } = useTheme();
+  const [showShortcuts, setShowShortcuts] = useState(false);
+
+  const handlePrintClick = () => {
+    // Dispatch event for print guidance
+    const event = new CustomEvent('showPrintGuidance');
+    window.dispatchEvent(event);
+  };
 
   return (
     <header className="h-16 border-b border-border bg-card flex items-center justify-between px-4 shadow-sm">
@@ -29,7 +38,7 @@ const TopBar = ({ onPrint, onDownloadPDF }: TopBarProps) => {
       </div>
 
       <div className="flex items-center gap-2">
-        <Button variant="secondary" size="sm" onClick={onPrint}>
+        <Button variant="secondary" size="sm" onClick={handlePrintClick}>
           <Printer className="h-4 w-4 mr-2" />
           Print
         </Button>
@@ -44,6 +53,15 @@ const TopBar = ({ onPrint, onDownloadPDF }: TopBarProps) => {
           onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
         >
           {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setShowShortcuts(true)}
+          title="Keyboard Shortcuts"
+        >
+          <Keyboard className="h-4 w-4" />
         </Button>
 
         <DropdownMenu>
@@ -67,6 +85,8 @@ const TopBar = ({ onPrint, onDownloadPDF }: TopBarProps) => {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      <KeyboardShortcutsDialog open={showShortcuts} onOpenChange={setShowShortcuts} />
     </header>
   );
 };

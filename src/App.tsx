@@ -11,6 +11,7 @@ import DashboardHome from "./pages/DashboardHome";
 import UploadPage from "./pages/UploadPage";
 import LayoutPage from "./pages/LayoutPage";
 import SettingsPage from "./pages/SettingsPage";
+import ExportPage from "./pages/ExportPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -42,7 +43,7 @@ const App = () => (
                 <Route path="dashboard" element={<DashboardHome />} />
                 <Route path="upload" element={<UploadPage />} />
                 <Route path="layout" element={<LayoutPage />} />
-                <Route path="export" element={<LayoutPage />} />
+                <Route path="export" element={<ExportPage />} />
                 <Route path="settings" element={<SettingsPage />} />
               </Route>
               <Route path="*" element={<NotFound />} />

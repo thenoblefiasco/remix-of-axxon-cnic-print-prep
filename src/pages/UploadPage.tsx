@@ -3,21 +3,25 @@ import { useDropzone } from 'react-dropzone';
 import JSZip from 'jszip';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Upload, FileArchive, Check } from 'lucide-react';
+import { Upload, FileArchive, Check, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface ExtractedImage {
   id: string;
   name: string;
   url: string;
   type: 'front' | 'back' | 'unknown';
+  rotation: number;
+  flipped: boolean;
 }
 
 const UploadPage = () => {
   const [images, setImages] = useState<ExtractedImage[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -25,9 +29,16 @@ const UploadPage = () => {
     const zipFile = acceptedFiles[0];
     if (!zipFile) return;
 
+    setError(null);
     setIsProcessing(true);
     
     try {
+      // Validate file size (max 50MB)
+      const maxSize = 50 * 1024 * 1024;
+      if (zipFile.size > maxSize) {
+        throw new Error('ZIP file is too large. Maximum size is 50MB.');
+      }
+
       const zip = new JSZip();
       const zipData = await zip.loadAsync(zipFile);
       const extractedImages: ExtractedImage[] = [];
@@ -35,29 +46,45 @@ const UploadPage = () => {
       // Extract images from ZIP
       for (const [filename, file] of Object.entries(zipData.files)) {
         if (!file.dir && /\.(jpg|jpeg|png|gif|webp)$/i.test(filename)) {
-          const blob = await file.async('blob');
-          const url = URL.createObjectURL(blob);
-          
-          extractedImages.push({
-            id: `${Date.now()}-${filename}`,
-            name: filename,
-            url,
-            type: 'unknown',
-          });
+          try {
+            const blob = await file.async('blob');
+            
+            // Validate image size
+            if (blob.size > 10 * 1024 * 1024) {
+              console.warn(`Image ${filename} is too large (max 10MB), skipping`);
+              continue;
+            }
+            
+            const url = URL.createObjectURL(blob);
+            
+            extractedImages.push({
+              id: `${Date.now()}-${filename}-${Math.random()}`,
+              name: filename,
+              url,
+              type: 'unknown',
+              rotation: 0,
+              flipped: false,
+            });
+          } catch (err) {
+            console.error(`Failed to process ${filename}:`, err);
+          }
         }
       }
 
       if (extractedImages.length === 0) {
-        toast({
-          title: 'No Images Found',
-          description: 'The ZIP file does not contain any valid images',
-          variant: 'destructive',
-        });
-        setIsProcessing(false);
-        return;
+        throw new Error('No valid images found in ZIP file');
       }
 
-      // Store images in sessionStorage for access across pages
+      // Limit to 100 images
+      if (extractedImages.length > 100) {
+        toast({
+          title: 'Too Many Images',
+          description: 'Only the first 100 images will be loaded',
+        });
+        extractedImages.splice(100);
+      }
+
+      // Store images in sessionStorage
       sessionStorage.setItem('extractedImages', JSON.stringify(extractedImages));
       setImages(extractedImages);
       
@@ -72,9 +99,11 @@ const UploadPage = () => {
       }, 1000);
       
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to extract images from ZIP file';
+      setError(errorMessage);
       toast({
         title: 'Extraction Failed',
-        description: 'Failed to extract images from ZIP file',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -104,10 +133,17 @@ const UploadPage = () => {
         <CardHeader>
           <CardTitle>Upload ZIP File</CardTitle>
           <CardDescription>
-            Drag and drop a ZIP file or click to browse
+            Drag and drop a ZIP file containing CNIC images (max 50MB, up to 100 images)
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          
           <div
             {...getRootProps()}
             className={`
@@ -138,6 +174,13 @@ const UploadPage = () => {
                 </>
               )}
             </motion.div>
+          </div>
+
+          <div className="mt-4 text-xs text-muted-foreground space-y-1">
+            <p>• Supported formats: JPG, PNG, GIF, WEBP</p>
+            <p>• Maximum ZIP size: 50MB</p>
+            <p>• Maximum images: 100 per upload</p>
+            <p>• Maximum image size: 10MB per image</p>
           </div>
         </CardContent>
       </Card>
