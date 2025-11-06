@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,8 +12,16 @@ import { Printer } from 'lucide-react';
 const Login = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard');
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,6 +31,8 @@ const Login = () => {
         title: "Login Successful",
         description: "Welcome to Axxon Formix",
       });
+      // Redirect to dashboard after successful login
+      navigate('/dashboard');
     } else {
       toast({
         title: "Login Failed",
