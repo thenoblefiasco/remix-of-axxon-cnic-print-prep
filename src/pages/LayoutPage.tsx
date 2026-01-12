@@ -14,6 +14,9 @@ import {
   Wand2,
   RotateCcw,
   Layers,
+  GripVertical,
+  FlipVertical,
+  Copy,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
@@ -26,7 +29,6 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { useImageHistory } from '@/hooks/useImageHistory';
-import { autoPairImages, createImageFromFile } from '@/lib/imageUtils';
 import ImageZoomDialog from '@/components/ImageZoomDialog';
 import {
   DndContext,
@@ -56,23 +58,17 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-interface ExtractedImage {
-  id: string;
-  name: string;
-  url: string;
-  type: 'front' | 'back' | 'unknown';
-  rotation: number;
-  flipped: boolean;
-}
+import { ExtractedImage, autoPairImages, createImageFromFile } from '@/lib/imageUtils';
 
 interface SortableImageProps {
   image: ExtractedImage;
-  onRotate: (id: string) => void;
-  onFlip: (id: string) => void;
+  onRotate: (id: string, direction: 'cw' | 'ccw') => void;
+  onFlip: (id: string, direction: 'horizontal' | 'vertical') => void;
   onDelete: (id: string) => void;
   onEdit: (image: ExtractedImage) => void;
   onZoom: (image: ExtractedImage) => void;
   onReplace: (id: string) => void;
+  onDuplicate: (id: string) => void;
 }
 
 const SortableImage = ({ 
@@ -83,6 +79,7 @@ const SortableImage = ({
   onEdit, 
   onZoom,
   onReplace,
+  onDuplicate,
 }: SortableImageProps) => {
   const {
     attributes,
@@ -101,9 +98,9 @@ const SortableImage = ({
 
   return (
     <div ref={setNodeRef} style={style} {...attributes}>
-      <Card className="overflow-hidden border-border hover:shadow-md transition-shadow">
+      <Card className="overflow-hidden border-border hover:shadow-md transition-shadow group">
         <div 
-          className="aspect-[85.6/54] bg-muted relative cursor-move"
+          className="aspect-[85.6/54] bg-muted relative cursor-grab active:cursor-grabbing"
           {...listeners}
         >
           <img
@@ -111,7 +108,7 @@ const SortableImage = ({
             alt={image.name}
             className="w-full h-full object-cover"
             style={{
-              transform: `rotate(${image.rotation}deg) scaleX(${image.flipped ? -1 : 1})`,
+              transform: `rotate(${image.rotation}deg) scaleX(${image.flipped ? -1 : 1}) scaleY(${image.flippedVertical ? -1 : 1})`,
               transition: 'transform 0.3s ease',
             }}
           />
@@ -123,26 +120,44 @@ const SortableImage = ({
               {image.type}
             </Badge>
           )}
-          <Button
-            size="icon"
-            variant="secondary"
-            className="absolute top-2 right-2 h-7 w-7"
-            onClick={(e) => {
-              e.stopPropagation();
-              onZoom(image);
-            }}
-          >
-            <ZoomIn className="h-3 w-3" />
-          </Button>
+          <div className="absolute top-2 right-2 flex gap-1">
+            <Button
+              size="icon"
+              variant="secondary"
+              className="h-7 w-7"
+              onClick={(e) => {
+                e.stopPropagation();
+                onZoom(image);
+              }}
+            >
+              <ZoomIn className="h-3 w-3" />
+            </Button>
+          </div>
+          <div className="absolute bottom-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <GripVertical className="h-4 w-4 text-white drop-shadow-lg" />
+          </div>
         </div>
         <div className="p-2 flex gap-1 justify-center bg-card flex-wrap">
           <Button
             size="icon"
             variant="ghost"
             className="h-8 w-8"
+            title="Rotate counter-clockwise"
             onClick={(e) => {
               e.stopPropagation();
-              onRotate(image.id);
+              onRotate(image.id, 'ccw');
+            }}
+          >
+            <RotateCcw className="h-3 w-3" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8"
+            title="Rotate clockwise"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRotate(image.id, 'cw');
             }}
           >
             <RotateCw className="h-3 w-3" />
@@ -151,9 +166,10 @@ const SortableImage = ({
             size="icon"
             variant="ghost"
             className="h-8 w-8"
+            title="Flip horizontal"
             onClick={(e) => {
               e.stopPropagation();
-              onFlip(image.id);
+              onFlip(image.id, 'horizontal');
             }}
           >
             <FlipHorizontal className="h-3 w-3" />
@@ -162,6 +178,19 @@ const SortableImage = ({
             size="icon"
             variant="ghost"
             className="h-8 w-8"
+            title="Flip vertical"
+            onClick={(e) => {
+              e.stopPropagation();
+              onFlip(image.id, 'vertical');
+            }}
+          >
+            <FlipVertical className="h-3 w-3" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8"
+            title="Edit image"
             onClick={(e) => {
               e.stopPropagation();
               onEdit(image);
@@ -173,6 +202,7 @@ const SortableImage = ({
             size="icon"
             variant="ghost"
             className="h-8 w-8"
+            title="Replace image"
             onClick={(e) => {
               e.stopPropagation();
               onReplace(image.id);
@@ -184,6 +214,19 @@ const SortableImage = ({
             size="icon"
             variant="ghost"
             className="h-8 w-8"
+            title="Duplicate image"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDuplicate(image.id);
+            }}
+          >
+            <Copy className="h-3 w-3" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8"
+            title="Delete image"
             onClick={(e) => {
               e.stopPropagation();
               onDelete(image.id);
@@ -218,7 +261,8 @@ const LayoutPage = () => {
       setImages(parsed.map((img: ExtractedImage) => ({ 
         ...img, 
         rotation: img.rotation || 0, 
-        flipped: img.flipped || false 
+        flipped: img.flipped || false,
+        flippedVertical: img.flippedVertical || false,
       })));
     }
   }, [setImages]);
@@ -261,15 +305,19 @@ const LayoutPage = () => {
     }
   };
 
-  const rotateImage = useCallback((id: string) => {
+  const rotateImage = useCallback((id: string, direction: 'cw' | 'ccw' = 'cw') => {
     setImages(images.map(img => 
-      img.id === id ? { ...img, rotation: (img.rotation + 90) % 360 } : img
+      img.id === id ? { ...img, rotation: (img.rotation + (direction === 'cw' ? 90 : -90) + 360) % 360 } : img
     ));
   }, [images, setImages]);
 
-  const flipImage = useCallback((id: string) => {
+  const flipImage = useCallback((id: string, direction: 'horizontal' | 'vertical' = 'horizontal') => {
     setImages(images.map(img => 
-      img.id === id ? { ...img, flipped: !img.flipped } : img
+      img.id === id ? { 
+        ...img, 
+        flipped: direction === 'horizontal' ? !img.flipped : img.flipped,
+        flippedVertical: direction === 'vertical' ? !img.flippedVertical : img.flippedVertical,
+      } : img
     ));
   }, [images, setImages]);
 
@@ -318,12 +366,31 @@ const LayoutPage = () => {
   };
 
   const handleResetAll = () => {
-    setImages(images.map(img => ({ ...img, rotation: 0, flipped: false })));
+    setImages(images.map(img => ({ ...img, rotation: 0, flipped: false, flippedVertical: false })));
     toast({
       title: 'All Reset',
       description: 'All transformations reset',
     });
   };
+
+  const handleDuplicateImage = useCallback((id: string) => {
+    const imageToDuplicate = images.find(img => img.id === id);
+    if (imageToDuplicate) {
+      const newImage: ExtractedImage = {
+        ...imageToDuplicate,
+        id: `${Date.now()}-${Math.random()}`,
+        name: `${imageToDuplicate.name} (copy)`,
+      };
+      const index = images.findIndex(img => img.id === id);
+      const newImages = [...images];
+      newImages.splice(index + 1, 0, newImage);
+      setImages(newImages);
+      toast({
+        title: 'Image Duplicated',
+        description: 'A copy has been added next to the original',
+      });
+    }
+  }, [images, setImages, toast]);
 
   const handleClearAll = () => {
     setImages([]);
@@ -463,6 +530,7 @@ const LayoutPage = () => {
                       onEdit={setSelectedImage}
                       onZoom={setZoomImage}
                       onReplace={handleReplaceImage}
+                      onDuplicate={handleDuplicateImage}
                     />
                   </motion.div>
                 ))}
