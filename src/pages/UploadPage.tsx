@@ -26,12 +26,6 @@ const UploadPage = () => {
     setIsProcessing(true);
     
     try {
-      // Validate file size (max 50MB)
-      const maxSize = 50 * 1024 * 1024;
-      if (zipFile.size > maxSize) {
-        throw new Error('ZIP file is too large. Maximum size is 50MB.');
-      }
-
       const zip = new JSZip();
       const zipData = await zip.loadAsync(zipFile);
       const extractedImages: ExtractedImage[] = [];
@@ -107,27 +101,13 @@ const UploadPage = () => {
     }
   }, [toast, navigate]);
 
-  const maxZipSize = 50 * 1024 * 1024; // 50MB
-  
-  const { getRootProps, getInputProps, isDragActive, fileRejections } = useDropzone({
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
       'application/zip': ['.zip'],
       'application/x-zip-compressed': ['.zip'],
     },
     maxFiles: 1,
-    maxSize: maxZipSize,
-    onDropRejected: (rejections) => {
-      const rejection = rejections[0];
-      if (rejection?.errors[0]?.code === 'file-too-large') {
-        setError('ZIP file is too large. Maximum size is 50MB.');
-        toast({
-          title: 'File Too Large',
-          description: 'Maximum ZIP file size is 50MB',
-          variant: 'destructive',
-        });
-      }
-    },
   });
 
   return (
@@ -143,7 +123,7 @@ const UploadPage = () => {
         <CardHeader>
           <CardTitle>Upload ZIP File</CardTitle>
           <CardDescription>
-            Drag and drop a ZIP file containing CNIC images (max 50MB, up to 100 images)
+            Drag and drop a ZIP file containing CNIC images (up to 100 images)
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -188,7 +168,6 @@ const UploadPage = () => {
 
           <div className="mt-4 text-xs text-muted-foreground space-y-1">
             <p>• Supported formats: JPG, PNG, GIF, WEBP</p>
-            <p>• Maximum ZIP size: 50MB</p>
             <p>• Maximum images: 100 per upload</p>
             <p>• Maximum image size: 10MB per image</p>
           </div>
