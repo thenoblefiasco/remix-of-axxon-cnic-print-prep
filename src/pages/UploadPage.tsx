@@ -58,6 +58,8 @@ const UploadPage = () => {
               rotation: 0,
               flipped: false,
               flippedVertical: false,
+              brightness: 100,
+              contrast: 100,
             });
           } catch (err) {
             console.error(`Failed to process ${filename}:`, err);
@@ -105,13 +107,27 @@ const UploadPage = () => {
     }
   }, [toast, navigate]);
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+  const maxZipSize = 50 * 1024 * 1024; // 50MB
+  
+  const { getRootProps, getInputProps, isDragActive, fileRejections } = useDropzone({
     onDrop,
     accept: {
       'application/zip': ['.zip'],
       'application/x-zip-compressed': ['.zip'],
     },
     maxFiles: 1,
+    maxSize: maxZipSize,
+    onDropRejected: (rejections) => {
+      const rejection = rejections[0];
+      if (rejection?.errors[0]?.code === 'file-too-large') {
+        setError('ZIP file is too large. Maximum size is 50MB.');
+        toast({
+          title: 'File Too Large',
+          description: 'Maximum ZIP file size is 50MB',
+          variant: 'destructive',
+        });
+      }
+    },
   });
 
   return (

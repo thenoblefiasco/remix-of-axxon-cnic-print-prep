@@ -8,6 +8,8 @@ export interface ExportImage {
   rotation: number;
   flipped: boolean;
   flippedVertical: boolean;
+  brightness: number;
+  contrast: number;
 }
 
 export interface ExportSettings {
@@ -112,6 +114,12 @@ export const exportToPDF = async (
           if (image.flippedVertical) {
             ctx.scale(1, -1);
           }
+          
+          // Apply brightness and contrast filter
+          const brightness = (image.brightness ?? 100) / 100;
+          const contrast = (image.contrast ?? 100) / 100;
+          ctx.filter = `brightness(${brightness}) contrast(${contrast})`;
+          
           ctx.drawImage(img, -img.width / 2, -img.height / 2);
           ctx.restore();
 
