@@ -21,6 +21,9 @@ import {
   Copy,
   SunMedium,
   Contrast,
+  Printer,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
@@ -34,6 +37,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { useImageHistory } from '@/hooks/useImageHistory';
 import ImageZoomDialog from '@/components/ImageZoomDialog';
+import PrintPreviewDialog from '@/components/PrintPreviewDialog';
+import { ExportSettings } from '@/lib/pdfExport';
 import {
   DndContext,
   closestCenter,
@@ -259,13 +264,30 @@ const SortableImage = ({
   );
 };
 
+const IMAGES_PER_PAGE = 20;
+
 const LayoutPage = () => {
   const { state: images, setState: setImages, undo, redo, canUndo, canRedo } = useImageHistory<ExtractedImage[]>([]);
   const [selectedImage, setSelectedImage] = useState<ExtractedImage | null>(null);
   const [zoomImage, setZoomImage] = useState<ExtractedImage | null>(null);
   const [adjustImage, setAdjustImage] = useState<ExtractedImage | null>(null);
   const [showClearDialog, setShowClearDialog] = useState(false);
+  const [showPrintPreview, setShowPrintPreview] = useState(false);
+  const [currentPage, setCurrentPage] = useState(0);
   const { toast } = useToast();
+
+  // Pagination
+  const totalPages = Math.ceil(images.length / IMAGES_PER_PAGE);
+  const startIndex = currentPage * IMAGES_PER_PAGE;
+  const paginatedImages = images.slice(startIndex, startIndex + IMAGES_PER_PAGE);
+
+  // Export settings for print preview
+  const exportSettings: ExportSettings = {
+    paperSize: 'a4',
+    gridDensity: '2x4',
+    margin: 10,
+    padding: 2,
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -519,6 +541,13 @@ const LayoutPage = () => {
               <Layers className="h-4 w-4 mr-2" />
               Clear All
             </Button>
+            <Button 
+              size="sm" 
+              onClick={() => setShowPrintPreview(true)}
+            >
+              <Printer className="h-4 w-4 mr-2" />
+              Print Preview
+            </Button>
             <div className="ml-auto text-sm text-muted-foreground">
               {images.length} images loaded
             </div>
@@ -536,39 +565,122 @@ const LayoutPage = () => {
           </Button>
         </Card>
       ) : (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext items={images.map(img => img.id)} strategy={rectSortingStrategy}>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <AnimatePresence mode="popLayout">
-                {images.map((image) => (
-                  <motion.div
-                    key={image.id}
-                    layout
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.8 }}
+        <>
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <Card className="p-3 border-border">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Showing {startIndex + 1}-{Math.min(startIndex + IMAGES_PER_PAGE, images.length)} of {images.length} images
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
+                    disabled={currentPage === 0}
                   >
-                    <SortableImage
-                      image={image}
-                      onRotate={rotateImage}
-                      onFlip={flipImage}
-                      onDelete={deleteImage}
-                      onEdit={setSelectedImage}
-                      onZoom={setZoomImage}
-                      onReplace={handleReplaceImage}
-                      onDuplicate={handleDuplicateImage}
-                      onAdjust={setAdjustImage}
-                    />
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
-          </SortableContext>
-        </DndContext>
+                    <ChevronLeft className="h-4 w-4" />
+                    Previous
+                  </Button>
+                  <span className="text-sm font-medium px-2">
+                    Page {currentPage + 1} of {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
+                    disabled={currentPage >= totalPages - 1}
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext items={paginatedImages.map(img => img.id)} strategy={rectSortingStrategy}>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <AnimatePresence mode="popLayout">
+                  {paginatedImages.map((image) => (
+                    <motion.div
+                      key={image.id}
+                      layout
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                    >
+                      <SortableImage
+                        image={image}
+                        onRotate={rotateImage}
+                        onFlip={flipImage}
+                        onDelete={deleteImage}
+                        onEdit={setSelectedImage}
+                        onZoom={setZoomImage}
+                        onReplace={handleReplaceImage}
+                        onDuplicate={handleDuplicateImage}
+                        onAdjust={setAdjustImage}
+                      />
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </div>
+            </SortableContext>
+          </DndContext>
+
+          {/* Bottom Pagination */}
+          {totalPages > 1 && (
+            <Card className="p-3 border-border">
+              <div className="flex items-center justify-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
+                  disabled={currentPage === 0}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum = i;
+                  if (totalPages > 5) {
+                    if (currentPage < 3) {
+                      pageNum = i;
+                    } else if (currentPage > totalPages - 3) {
+                      pageNum = totalPages - 5 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+                  }
+                  return (
+                    <Button
+                      key={pageNum}
+                      variant={currentPage === pageNum ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setCurrentPage(pageNum)}
+                      className="w-9"
+                    >
+                      {pageNum + 1}
+                    </Button>
+                  );
+                })}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
+                  disabled={currentPage >= totalPages - 1}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </Card>
+          )}
+        </>
       )}
 
       <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
@@ -741,6 +853,13 @@ const LayoutPage = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <PrintPreviewDialog
+        open={showPrintPreview}
+        onOpenChange={setShowPrintPreview}
+        images={images}
+        settings={exportSettings}
+      />
     </div>
   );
 };
