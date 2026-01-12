@@ -3,6 +3,7 @@ import { useDropzone } from 'react-dropzone';
 import JSZip from 'jszip';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import { Upload, FileArchive, Check, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { motion } from 'framer-motion';
@@ -15,6 +16,7 @@ const UploadPage = () => {
   const [images, setImages] = useState<ExtractedImage[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState({ current: 0, total: 0, percentage: 0 });
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -24,40 +26,66 @@ const UploadPage = () => {
 
     setError(null);
     setIsProcessing(true);
+    setProgress({ current: 0, total: 0, percentage: 0 });
     
     try {
       const zip = new JSZip();
       const zipData = await zip.loadAsync(zipFile);
       const extractedImages: ExtractedImage[] = [];
 
-      // Extract images from ZIP
-      for (const [filename, file] of Object.entries(zipData.files)) {
-        if (!file.dir && /\.(jpg|jpeg|png|gif|webp)$/i.test(filename)) {
-          try {
-            const blob = await file.async('blob');
-            
-            // Validate image size
-            if (blob.size > 10 * 1024 * 1024) {
-              console.warn(`Image ${filename} is too large (max 10MB), skipping`);
-              continue;
-            }
-            
-            const url = URL.createObjectURL(blob);
-            
-            extractedImages.push({
-              id: `${Date.now()}-${filename}-${Math.random()}`,
-              name: filename,
-              url,
-              type: 'unknown',
-              rotation: 0,
-              flipped: false,
-              flippedVertical: false,
-              brightness: 100,
-              contrast: 100,
+      // Count total image files
+      const imageFiles = Object.entries(zipData.files).filter(
+        ([filename, file]) => !file.dir && /\.(jpg|jpeg|png|gif|webp)$/i.test(filename)
+      );
+      const totalImages = imageFiles.length;
+      setProgress({ current: 0, total: totalImages, percentage: 0 });
+
+      // Extract images from ZIP with progress
+      let processedCount = 0;
+      for (const [filename, file] of imageFiles) {
+        try {
+          const blob = await file.async('blob');
+          
+          // Validate image size
+          if (blob.size > 10 * 1024 * 1024) {
+            console.warn(`Image ${filename} is too large (max 10MB), skipping`);
+            processedCount++;
+            setProgress({
+              current: processedCount,
+              total: totalImages,
+              percentage: Math.round((processedCount / totalImages) * 100),
             });
-          } catch (err) {
-            console.error(`Failed to process ${filename}:`, err);
+            continue;
           }
+          
+          const url = URL.createObjectURL(blob);
+          
+          extractedImages.push({
+            id: `${Date.now()}-${filename}-${Math.random()}`,
+            name: filename,
+            url,
+            type: 'unknown',
+            rotation: 0,
+            flipped: false,
+            flippedVertical: false,
+            brightness: 100,
+            contrast: 100,
+          });
+
+          processedCount++;
+          setProgress({
+            current: processedCount,
+            total: totalImages,
+            percentage: Math.round((processedCount / totalImages) * 100),
+          });
+        } catch (err) {
+          console.error(`Failed to process ${filename}:`, err);
+          processedCount++;
+          setProgress({
+            current: processedCount,
+            total: totalImages,
+            percentage: Math.round((processedCount / totalImages) * 100),
+          });
         }
       }
 
@@ -141,10 +169,18 @@ const UploadPage = () => {
               transition={{ duration: 0.2 }}
             >
               {isProcessing ? (
-                <>
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
+                <div className="space-y-4">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto" />
                   <p className="text-foreground font-medium">Processing ZIP file...</p>
-                </>
+                  {progress.total > 0 && (
+                    <div className="space-y-2 max-w-xs mx-auto">
+                      <Progress value={progress.percentage} className="h-2" />
+                      <p className="text-sm text-muted-foreground">
+                        Extracting {progress.current} of {progress.total} images ({progress.percentage}%)
+                      </p>
+                    </div>
+                  )}
+                </div>
               ) : (
                 <>
                   <FileArchive className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
