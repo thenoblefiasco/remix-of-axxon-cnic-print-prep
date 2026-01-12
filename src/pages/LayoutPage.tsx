@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Slider } from '@/components/ui/slider';
+import { Label } from '@/components/ui/label';
 import { 
   RotateCw, 
   Trash2, 
@@ -17,6 +19,8 @@ import {
   GripVertical,
   FlipVertical,
   Copy,
+  SunMedium,
+  Contrast,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
@@ -69,6 +73,7 @@ interface SortableImageProps {
   onZoom: (image: ExtractedImage) => void;
   onReplace: (id: string) => void;
   onDuplicate: (id: string) => void;
+  onAdjust: (image: ExtractedImage) => void;
 }
 
 const SortableImage = ({ 
@@ -80,6 +85,7 @@ const SortableImage = ({
   onZoom,
   onReplace,
   onDuplicate,
+  onAdjust,
 }: SortableImageProps) => {
   const {
     attributes,
@@ -109,7 +115,8 @@ const SortableImage = ({
             className="w-full h-full object-cover"
             style={{
               transform: `rotate(${image.rotation}deg) scaleX(${image.flipped ? -1 : 1}) scaleY(${image.flippedVertical ? -1 : 1})`,
-              transition: 'transform 0.3s ease',
+              filter: `brightness(${(image.brightness ?? 100) / 100}) contrast(${(image.contrast ?? 100) / 100})`,
+              transition: 'transform 0.3s ease, filter 0.2s ease',
             }}
           />
           {image.type !== 'unknown' && (
@@ -214,6 +221,18 @@ const SortableImage = ({
             size="icon"
             variant="ghost"
             className="h-8 w-8"
+            title="Adjust brightness/contrast"
+            onClick={(e) => {
+              e.stopPropagation();
+              onAdjust(image);
+            }}
+          >
+            <SunMedium className="h-3 w-3" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8"
             title="Duplicate image"
             onClick={(e) => {
               e.stopPropagation();
@@ -244,6 +263,7 @@ const LayoutPage = () => {
   const { state: images, setState: setImages, undo, redo, canUndo, canRedo } = useImageHistory<ExtractedImage[]>([]);
   const [selectedImage, setSelectedImage] = useState<ExtractedImage | null>(null);
   const [zoomImage, setZoomImage] = useState<ExtractedImage | null>(null);
+  const [adjustImage, setAdjustImage] = useState<ExtractedImage | null>(null);
   const [showClearDialog, setShowClearDialog] = useState(false);
   const { toast } = useToast();
 
@@ -263,6 +283,8 @@ const LayoutPage = () => {
         rotation: img.rotation || 0, 
         flipped: img.flipped || false,
         flippedVertical: img.flippedVertical || false,
+        brightness: img.brightness ?? 100,
+        contrast: img.contrast ?? 100,
       })));
     }
   }, [setImages]);
@@ -366,12 +388,20 @@ const LayoutPage = () => {
   };
 
   const handleResetAll = () => {
-    setImages(images.map(img => ({ ...img, rotation: 0, flipped: false, flippedVertical: false })));
+    setImages(images.map(img => ({ 
+      ...img, 
+      rotation: 0, 
+      flipped: false, 
+      flippedVertical: false,
+      brightness: 100,
+      contrast: 100,
+    })));
     toast({
       title: 'All Reset',
-      description: 'All transformations reset',
+      description: 'All transformations and adjustments reset',
     });
   };
+
 
   const handleDuplicateImage = useCallback((id: string) => {
     const imageToDuplicate = images.find(img => img.id === id);
@@ -531,6 +561,7 @@ const LayoutPage = () => {
                       onZoom={setZoomImage}
                       onReplace={handleReplaceImage}
                       onDuplicate={handleDuplicateImage}
+                      onAdjust={setAdjustImage}
                     />
                   </motion.div>
                 ))}
@@ -575,6 +606,111 @@ const LayoutPage = () => {
                   onClick={() => markAs(selectedImage.id, 'back')}
                 >
                   Mark as Back
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Brightness/Contrast Adjustment Dialog */}
+      <Dialog open={!!adjustImage} onOpenChange={() => setAdjustImage(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <SunMedium className="h-5 w-5" />
+              Adjust Brightness & Contrast
+            </DialogTitle>
+            <DialogDescription>
+              Fine-tune the image appearance before printing
+            </DialogDescription>
+          </DialogHeader>
+          {adjustImage && (
+            <div className="space-y-6">
+              <div className="aspect-[85.6/54] bg-muted rounded-lg overflow-hidden">
+                <img
+                  src={adjustImage.url}
+                  alt={adjustImage.name}
+                  className="w-full h-full object-cover"
+                  style={{
+                    transform: `rotate(${adjustImage.rotation}deg) scaleX(${adjustImage.flipped ? -1 : 1}) scaleY(${adjustImage.flippedVertical ? -1 : 1})`,
+                    filter: `brightness(${(adjustImage.brightness ?? 100) / 100}) contrast(${(adjustImage.contrast ?? 100) / 100})`,
+                  }}
+                />
+              </div>
+              <p className="text-sm text-muted-foreground truncate">{adjustImage.name}</p>
+              
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="flex items-center gap-2">
+                      <SunMedium className="h-4 w-4" />
+                      Brightness
+                    </Label>
+                    <span className="text-sm text-muted-foreground w-12 text-right">
+                      {adjustImage.brightness ?? 100}%
+                    </span>
+                  </div>
+                  <Slider
+                    value={[adjustImage.brightness ?? 100]}
+                    min={20}
+                    max={200}
+                    step={5}
+                    onValueChange={(value) => {
+                      const updatedImage = { ...adjustImage, brightness: value[0] };
+                      setAdjustImage(updatedImage);
+                      setImages(images.map(img => 
+                        img.id === adjustImage.id ? updatedImage : img
+                      ));
+                    }}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="flex items-center gap-2">
+                      <Contrast className="h-4 w-4" />
+                      Contrast
+                    </Label>
+                    <span className="text-sm text-muted-foreground w-12 text-right">
+                      {adjustImage.contrast ?? 100}%
+                    </span>
+                  </div>
+                  <Slider
+                    value={[adjustImage.contrast ?? 100]}
+                    min={20}
+                    max={200}
+                    step={5}
+                    onValueChange={(value) => {
+                      const updatedImage = { ...adjustImage, contrast: value[0] };
+                      setAdjustImage(updatedImage);
+                      setImages(images.map(img => 
+                        img.id === adjustImage.id ? updatedImage : img
+                      ));
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => {
+                    const resetImage = { ...adjustImage, brightness: 100, contrast: 100 };
+                    setAdjustImage(resetImage);
+                    setImages(images.map(img => 
+                      img.id === adjustImage.id ? resetImage : img
+                    ));
+                  }}
+                >
+                  Reset to Default
+                </Button>
+                <Button
+                  className="flex-1"
+                  onClick={() => setAdjustImage(null)}
+                >
+                  Done
                 </Button>
               </div>
             </div>

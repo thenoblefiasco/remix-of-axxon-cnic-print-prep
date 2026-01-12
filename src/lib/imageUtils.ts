@@ -6,6 +6,8 @@ export interface ExtractedImage {
   rotation: number;
   flipped: boolean;
   flippedVertical: boolean;
+  brightness: number; // 0-200, 100 = normal
+  contrast: number;   // 0-200, 100 = normal
 }
 
 export const autoPairImages = (images: ExtractedImage[]): ExtractedImage[] => {
@@ -71,5 +73,7 @@ export const createImageFromFile = async (
     rotation: 0,
     flipped: false,
     flippedVertical: false,
+    brightness: 100,
+    contrast: 100,
   };
 };
