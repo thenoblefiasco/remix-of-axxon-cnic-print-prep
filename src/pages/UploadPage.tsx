@@ -65,15 +65,6 @@ const UploadPage = () => {
         throw new Error('No valid images found in ZIP file');
       }
 
-      // Limit to 100 images
-      if (extractedImages.length > 100) {
-        toast({
-          title: 'Too Many Images',
-          description: 'Only the first 100 images will be loaded',
-        });
-        extractedImages.splice(100);
-      }
-
       // Store images in sessionStorage
       sessionStorage.setItem('extractedImages', JSON.stringify(extractedImages));
       setImages(extractedImages);
@@ -123,7 +114,7 @@ const UploadPage = () => {
         <CardHeader>
           <CardTitle>Upload ZIP File</CardTitle>
           <CardDescription>
-            Drag and drop a ZIP file containing CNIC images (up to 100 images)
+            Drag and drop a ZIP file containing CNIC images
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -168,7 +159,6 @@ const UploadPage = () => {
 
           <div className="mt-4 text-xs text-muted-foreground space-y-1">
             <p>• Supported formats: JPG, PNG, GIF, WEBP</p>
-            <p>• Maximum images: 100 per upload</p>
             <p>• Maximum image size: 10MB per image</p>
           </div>
         </CardContent>
