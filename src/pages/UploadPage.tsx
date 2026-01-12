@@ -9,14 +9,7 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
-interface ExtractedImage {
-  id: string;
-  name: string;
-  url: string;
-  type: 'front' | 'back' | 'unknown';
-  rotation: number;
-  flipped: boolean;
-}
+import { ExtractedImage } from '@/lib/imageUtils';
 
 const UploadPage = () => {
   const [images, setImages] = useState<ExtractedImage[]>([]);
@@ -64,6 +57,7 @@ const UploadPage = () => {
               type: 'unknown',
               rotation: 0,
               flipped: false,
+              flippedVertical: false,
             });
           } catch (err) {
             console.error(`Failed to process ${filename}:`, err);

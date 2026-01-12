@@ -7,6 +7,7 @@ export interface ExportImage {
   type: 'front' | 'back' | 'unknown';
   rotation: number;
   flipped: boolean;
+  flippedVertical: boolean;
 }
 
 export interface ExportSettings {
@@ -107,6 +108,9 @@ export const exportToPDF = async (
           ctx.rotate((image.rotation * Math.PI) / 180);
           if (image.flipped) {
             ctx.scale(-1, 1);
+          }
+          if (image.flippedVertical) {
+            ctx.scale(1, -1);
           }
           ctx.drawImage(img, -img.width / 2, -img.height / 2);
           ctx.restore();

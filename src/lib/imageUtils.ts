@@ -5,6 +5,7 @@ export interface ExtractedImage {
   type: 'front' | 'back' | 'unknown';
   rotation: number;
   flipped: boolean;
+  flippedVertical: boolean;
 }
 
 export const autoPairImages = (images: ExtractedImage[]): ExtractedImage[] => {
@@ -69,5 +70,6 @@ export const createImageFromFile = async (
     type: 'unknown',
     rotation: 0,
     flipped: false,
+    flippedVertical: false,
   };
 };
